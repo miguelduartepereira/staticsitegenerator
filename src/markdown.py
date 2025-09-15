@@ -16,7 +16,7 @@ def _text_of(node):
         parts.append(_text_of(c))
     return "".join(parts)
 
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath):
     print(f"Generating page from {from_path} to {dest_path} using {template_path}")
     
     with open(from_path, "r") as f:
@@ -35,6 +35,10 @@ def generate_page(from_path, template_path, dest_path):
 
     template_content = template_content.replace("{{ Content }}", markdown_string)
 
+    #template_content = template_content.replace('href="/', f'href="{basepath}')
+
+    #template_content = template_content.replace('src="/', f'src="{basepath}')
+
     dirpath = os.path.dirname(dest_path)
 
     os.makedirs(dirpath, exist_ok=True)
@@ -43,7 +47,7 @@ def generate_page(from_path, template_path, dest_path):
         f.write(template_content)
 
 
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath):
 
     files = os.listdir(dir_path_content)
 
@@ -53,7 +57,7 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
         if not os.path.isfile(src_path):
             dest_subdir = os.path.join(dest_dir_path, file)
             os.makedirs(dest_subdir, exist_ok=True)
-            generate_pages_recursive(src_path, template_path, dest_subdir)
+            generate_pages_recursive(src_path, template_path, dest_subdir, basepath)
 
         elif os.path.isfile(src_path) and file.endswith(".md"):
             if file == "index.md":
@@ -64,4 +68,4 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
             
             parent = os.path.dirname(dest_html)
             os.makedirs(parent, exist_ok=True)
-            generate_page(src_path, template_path, dest_html)
+            generate_page(src_path, template_path, dest_html, basepath)
