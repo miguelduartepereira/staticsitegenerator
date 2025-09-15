@@ -1,5 +1,6 @@
 from enum import Enum
-
+from htmlnode import HTMLNode, ParentNode, LeafNode
+from inline_markdown import text_to_children
 
 class BlockType(Enum):
     PARAGRAPH = "paragraph"
@@ -20,56 +21,92 @@ def markdown_to_blocks(markdown):
     return blocks
 
 def block_to_block_type(block):
-    if not block: return
+    lines = block.split("\n")
 
-    if block[0] == '#':
-        heading_characters = 1
-        i = 1
-        while heading_characters < 6 and i < len(block):
-            if block[i] == '#':
-                heading_characters += 1
-                i += 1
-            elif block[i] == ' ':
-                break
-        if 1 <= heading_characters <= 6 and i < len(block) and block[i] == ' ': return BlockType.HEADING
-        else: return BlockType.PARAGRAPH
-    
-    elif len(block) >= 6 and block[:3] == '```' and block[-3:] == '```': return BlockType.CODE
-
-    elif block[0] == '>':
-        lines = block.split("\n")
-        for i in range(lines):
-            if len(lines) >= 1 and lines[i][0] != '>': return BlockType.PARAGRAPH
-
-            elif lines[i] == "":
-                del lines[i]
-        return BlockType.QUOTE
-    
-    elif block[0] == '-':
-        lines = block.split("\n")
-        for i in range(lines):
-            if len(lines) >= 1 and lines[i][:2] != '- ': return BlockType.PARAGRAPH
-
-            elif lines[i] == "":
-                del lines[i]
-        return BlockType.UNORDERED_LIST
-    
-    elif block[0].isdigit():
-        lines = block.split("\n")
-        dot_index = lines[0].find('.')
-        start_number = int(lines[0][0][:dot_index])
-        if start_number != 1: return BlockType.PARAGRAPH
+    if block.startswith(("# ", "## ", "### ", "#### ", "##### ", "###### ")):
+        return BlockType.HEADING
+    if len(lines) > 1 and lines[0].startswith("```") and lines[-1].startswith("```"):
+        return BlockType.CODE
+    if block.startswith(">"):
         for line in lines:
-            dot_index = line.find('.')
-            number = line[:dot_index]
-            if ( number == start_number + 1 and
-                line[:dot_index + 2] == f'{number}. '
-
-            ):
-                start_number = number
-            else:
+            if not line.startswith(">"):
                 return BlockType.PARAGRAPH
+        return BlockType.QUOTE
+    if block.startswith("- "):
+        for line in lines:
+            if not line.startswith("- "):
+                return BlockType.PARAGRAPH
+        return BlockType.UNORDERED_LIST
+    if block.startswith("1. "):
+        i = 1
+        for line in lines:
+            if not line.startswith(f"{i}. "):
+                return BlockType.PARAGRAPH
+            i += 1
         return BlockType.ORDERED_LIST
-    else:
-        return BlockType.PARAGRAPH
+    return BlockType.PARAGRAPH
+
+
+def markdown_to_html_node(markdown):
+    blocks = markdown_to_blocks(markdown)
+    children = []
+
+    for block in blocks:
+        if not block.strip(): continue
+        
+        block_type = block_to_block_type(block)
+
+        if block_type == BlockType.PARAGRAPH:
+            paragraph_string = " ".join(line.strip() for line in block.split("\n") if line.strip())
+            node = ParentNode('p', text_to_children(paragraph_string))
+            children.append(node)
+
+        if block_type == BlockType.HEADING:
+            i = 0
+            while block[i] == '#' and i < len(block):
+                i += 1
+            level = i
+            if 1 <= level <= 6 and i < len(block) and block[i] == " ":
+                content = block[i+1:].strip()
+                tag = f"h{level}"
+                node = ParentNode(tag, text_to_children(content))
+                children.append(node)
+        
+        if block_type == BlockType.QUOTE:
+            clean = []
+            for line in block.splitlines():
+                if line.startswith(">"):
+                    line = line[1:].lstrip()  # remove '>' then spaces
+                clean.append(line.strip())
+            joined = " ".join(l for l in clean if l)
+            node = ParentNode("blockquote", text_to_children(joined))
+            children.append(node)
+
+        if block_type == BlockType.UNORDERED_LIST:
+            li_nodes = []
+            for line in block.splitlines():
+                line = line.strip()
+                if line.startswith("- "):
+                    item = line[2:].strip()
+                    li_nodes.append(ParentNode("li", text_to_children(item)))
+            children.append(ParentNode("ul", li_nodes))
+        
+        if block_type == BlockType.ORDERED_LIST:
+            li_nodes = []
+            for line in block.splitlines():
+                line = line.strip()
+                j = 0
+                while j < len(line) and line[j].isdigit():
+                    j += 1
+                if j > 0 and j + 1 < len(line) and line[j] == "." and line[j+1] == " ":
+                    item = line[j+2:].strip()
+                    li_nodes.append(ParentNode("li", text_to_children(item)))
+            children.append(ParentNode("ol", li_nodes))
+        
+        if block_type == BlockType.CODE:
+            lines = block.splitlines(keepends=True)
+            inner_text = "".join(lines[1:-1])
+            children.append(ParentNode("pre", [LeafNode("code", inner_text)]))
+
+    return ParentNode('div', children)
     

@@ -1,6 +1,6 @@
 import re
 
-from textnode import TextNode, TextType
+from textnode import TextNode, TextType, text_node_to_html_node
 
 def split_nodes_delimiter(old_nodes, delimiter, text_type):
     new_nodes = []
@@ -94,6 +94,12 @@ def text_to_textnodes(text):
     current_nodes = split_nodes_delimiter(current_nodes, "**", TextType.BOLD)
     current_nodes = split_nodes_delimiter(current_nodes, "_",TextType.ITALIC)
     return current_nodes
+
+
+def text_to_children(text):
+    nodes = text_to_textnodes(text)
+    children = [text_node_to_html_node(n) for n in nodes]
+    return children
 
 
 
