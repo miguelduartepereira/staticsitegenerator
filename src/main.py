@@ -6,10 +6,9 @@ from markdown import generate_pages_recursive
 
 
 def main():
-    if sys.argv[0]:
-        basepath = sys.argv[0]
-    else:
-        basepath = "/" 
+    basepath = sys.argv[1] if len(sys.argv) > 1 else "/"
+    if basepath != "/":
+        basepath = "/" + basepath.strip("/") + "/" 
     copy_contents("static", "docs")
     generate_pages_recursive("content", "template.html", "docs", basepath)
 
